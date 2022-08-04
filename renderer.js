@@ -33,7 +33,7 @@ socket.on("message", (data) => {
     handleCandidate(peerConnection, candidate);
   }
   if (data.type === 'ready') {
-    makeOffer(peerConnection);
+    makeOffer(peerConnection, audioSource.value);
   }
 });
 
@@ -46,26 +46,34 @@ function createPeerConnection(socket) {
   return pc;
 }
 
-async function makeOffer(peerConnection, audioDeviceId = null) {
+async function makeOffer(peerConnection, audioDeviceId = 'default') {
   const musicConstraints = {
     echoCancellation: false,
     noiseSuppression: false,
     autoGainControl: false,
   };
 
+  /** type MediaTrackConstraints */
   const audioConstraints = {
     ...musicConstraints
   };
 
   if (audioDeviceId) {
-    audioConstraints.audioDeviceId = audioDeviceId;
+    audioConstraints.deviceId = audioDeviceId;
   }
 
   const localStream = await navigator.mediaDevices.getUserMedia({
-    audio: audioConstraints
+    audio: audioConstraints,
   });
 
-  localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+  for (const track of localStream.getTracks()) {
+    const sender = peerConnection.getSenders().find(sender => sender.track.kind === track.kind);
+    if (sender) {
+      await sender.replaceTrack(track);
+    } else {
+      peerConnection.addTrack(track, localStream);
+    }
+  }
 
   const offer = await peerConnection.createOffer();
   await peerConnection.setLocalDescription(offer);
@@ -95,6 +103,10 @@ navigator.mediaDevices.enumerateDevices().then(function (deviceInfos) {
     const option = document.createElement("option");
     option.value = deviceInfo.deviceId;
     option.text = deviceInfo.label || `Microphone ${audioSource.length + 1}`;
+    if (deviceInfo.deviceId === 'default') {
+      option.selected = true;
+    }
+
     audioSource.appendChild(option);
   }
 });
