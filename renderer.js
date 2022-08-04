@@ -47,10 +47,22 @@ function createPeerConnection(socket) {
 }
 
 async function makeOffer(peerConnection, audioDeviceId = null) {
+  const musicConstraints = {
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl: false,
+  };
+
+  const audioConstraints = {
+    ...musicConstraints
+  };
+
+  if (audioDeviceId) {
+    audioConstraints.audioDeviceId = audioDeviceId;
+  }
+
   const localStream = await navigator.mediaDevices.getUserMedia({
-    audio: audioDeviceId == null
-      ? true
-      : { deviceId: audioDeviceId }
+    audio: audioConstraints
   });
 
   localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
