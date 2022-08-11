@@ -1,13 +1,12 @@
-const { app, BrowserWindow } = require('electron');
+import { app, BrowserWindow } from 'electron';
 
-const express = require('express');
+import cors from 'cors';
+import express from 'express';
+import http from 'http';
+import path from 'path';
+import { Server } from "socket.io";
 const myApp = express();
-const http = require('http');
 const server = http.createServer(myApp);
-const { Server } = require("socket.io");
-const cors = require('cors');
-const os = require('os');
-const path = require('path');
 
 const createWindow = () => {
   const win = new BrowserWindow({

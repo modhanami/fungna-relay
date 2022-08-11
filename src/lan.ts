@@ -1,5 +1,4 @@
-const express = require('express');
-const os = require('os');
+import { networkInterfaces } from 'os';
 
 function belongsToSubnet(ip, mask, subnet) {
   const ipBytes = ip.split('.').map(octet => parseInt(octet));
@@ -11,7 +10,7 @@ function belongsToSubnet(ip, mask, subnet) {
   });
 }
 
-function getLANIP(subnet) {
+export function getLANIP(subnet) {
   const interfaces = getIPv4Interfaces();
 
   const lanInterface = interfaces.find(int => {
@@ -25,11 +24,7 @@ function getLANIP(subnet) {
 }
 
 function getIPv4Interfaces() {
-  return Object.values(os.networkInterfaces())
+  return Object.values(networkInterfaces())
     .flat()
     .filter(int => int.family === 'IPv4');
 }
-
-module.exports = {
-  getLANIP,
-};
