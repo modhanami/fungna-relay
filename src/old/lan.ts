@@ -13,9 +13,9 @@ function belongsToSubnet(ip: string, mask: string, subnet: string): boolean {
 export function getLANIP(subnet: string): string {
   const interfaces = getIPv4Interfaces();
 
-  const lanInterface = interfaces.find(int => {
+  const lanInterface = interfaces.find((int) => {
     const ip = int.address;
-    const netmask = int.netmask;
+    const { netmask } = int;
 
     return belongsToSubnet(ip, netmask, subnet);
   });
@@ -32,7 +32,7 @@ function getIPv4Interfaces(): NetworkInterfaceInfoIPv4[] {
   const addresses = Object.values(interfaces)
     .flat()
     .filter((int): int is NetworkInterfaceInfoIPv4 => int !== undefined);
-  const ipv4Addresses = addresses.filter(int => int.family === 'IPv4');
+  const ipv4Addresses = addresses.filter((int) => int.family === 'IPv4');
 
   return ipv4Addresses;
 }
