@@ -1,39 +1,55 @@
-import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
-import icon from '../../assets/icon.svg';
+import { useEffect, useState } from 'react';
+import { MemoryRouter as Router, Route, Routes } from 'react-router-dom';
+import { io } from 'socket.io-client';
+import { createSocketIoPeerConnection } from 'webrtc/peer-connection';
 import './App.css';
 
-const Hello = () => {
+const Home = () => {
+  const [socket] = useState(io('http://localhost:30033'));
+  const [spc] = useState(createSocketIoPeerConnection(socket));
+  const [ip, setIp] = useState('');
+
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDevice, setSelectedDevice] = useState<string>('');
+
+  async function getAudioDevices() {
+    const allDevices = await navigator.mediaDevices.enumerateDevices();
+    const audioDevices = allDevices.filter(
+      (device) => device.kind === 'audioinput'
+    );
+    setDevices(audioDevices);
+  }
+
+  function handleDeviceChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const deviceId = e.target.value;
+    console.log(`Selected audio source: ${deviceId}`);
+    spc.offerAudio(deviceId);
+    setSelectedDevice(deviceId);
+  }
+
+  useEffect(() => {
+    getAudioDevices();
+    window.electron.ipcRenderer.getServerIp().then(setIp).catch(console.log);
+
+    return () => {
+      socket.disconnect();
+      spc.pc.close();
+    };
+  }, [socket, spc]);
+
   return (
     <div>
-      <div className="Hello">
-        <img width="200" alt="icon" src={icon} />
-      </div>
-      <h1>electron-react-boilerplate</h1>
-      <div className="Hello">
-        <a
-          href="https://electron-react-boilerplate.js.org/"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <button type="button">
-            <span role="img" aria-label="books">
-              📚
-            </span>
-            Read our docs
-          </button>
-        </a>
-        <a
-          href="https://github.com/sponsors/electron-react-boilerplate"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <button type="button">
-            <span role="img" aria-label="folded hands">
-              🙏
-            </span>
-            Donate
-          </button>
-        </a>
+      <h1>Fungna Relay</h1>
+      <h2>Server IP: {ip}</h2>
+      <div>
+        <h2>Audio</h2>
+        <select onChange={handleDeviceChange} defaultValue={selectedDevice}>
+          {devices.map((device) => (
+            <option key={device.deviceId} value={device.deviceId}>
+              {device.label}
+            </option>
+          ))}
+        </select>
       </div>
     </div>
   );
@@ -43,7 +59,7 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Hello />} />
+        <Route path="/" element={<Home />} />
       </Routes>
     </Router>
   );

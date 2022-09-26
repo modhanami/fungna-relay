@@ -8,11 +8,13 @@
  * When running `npm run build` or `npm run build:main`, this file is compiled to
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
-import path from 'path';
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
-import { autoUpdater } from 'electron-updater';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import log from 'electron-log';
+import { autoUpdater } from 'electron-updater';
+import path from 'path';
+import { getFirstIPv4LanIp } from './lan';
 import MenuBuilder from './menu';
+import { startServer } from './server';
 import { resolveHtmlPath } from './util';
 
 class AppUpdater {
@@ -136,3 +138,9 @@ app
     });
   })
   .catch(console.log);
+
+startServer();
+
+ipcMain.handle('network:getServerIP', () => {
+  return getFirstIPv4LanIp();
+});
