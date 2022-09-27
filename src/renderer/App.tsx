@@ -1,14 +1,10 @@
 import { useEffect, useState } from 'react';
 import { MemoryRouter as Router, Route, Routes } from 'react-router-dom';
-import { io } from 'socket.io-client';
-import { createSocketIoPeerConnection } from 'webrtc/peer-connection';
+import { spc } from 'webrtc/peer-connection';
 import './App.css';
 
 const Home = () => {
-  const [socket] = useState(io('http://localhost:30033'));
-  const [spc] = useState(createSocketIoPeerConnection(socket));
   const [ip, setIp] = useState('');
-
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string>('');
 
@@ -21,6 +17,11 @@ const Home = () => {
   }
 
   function handleDeviceChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    if (!spc.pc.currentRemoteDescription) {
+      console.log('no remote description');
+      return;
+    }
+
     const deviceId = e.target.value;
     console.log(`Selected audio source: ${deviceId}`);
     spc.offerAudio(deviceId);
@@ -30,12 +31,7 @@ const Home = () => {
   useEffect(() => {
     getAudioDevices();
     window.electron.ipcRenderer.getServerIp().then(setIp).catch(console.log);
-
-    return () => {
-      socket.disconnect();
-      spc.pc.close();
-    };
-  }, [socket, spc]);
+  }, []);
 
   return (
     <div>
@@ -55,11 +51,16 @@ const Home = () => {
   );
 };
 
+function What() {
+  return <div>What</div>;
+}
+
 export default function App() {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<Home />} />
+        {/* <Route path="/" element={<What />} /> */}
       </Routes>
     </Router>
   );

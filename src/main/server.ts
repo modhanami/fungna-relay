@@ -16,8 +16,6 @@ const io = new Server(server, { cors: { origin: '*' } });
 io.on('connection', (socket) => {
   console.log(`A user connected: ${socket.id}`);
 
-  socket.emit('message', { type: 'welcome' });
-
   socket.on('message', (data) => {
     socket.broadcast.emit('message', data);
     if (data.type === 'candidate') {
@@ -25,9 +23,10 @@ io.on('connection', (socket) => {
     }
 
     console.log(`>>> Data from ${socket.id} [${data.type}]`);
-    const sdp = data.payload?.sdp;
-    console.log(sdp);
-    console.log('');
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log(`User disconnected: ${socket.id} [${reason}]`);
   });
 });
 

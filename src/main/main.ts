@@ -136,10 +136,10 @@ app
       // dock icon is clicked and there are no other windows open.
       if (mainWindow === null) createWindow();
     });
+
+    startServer();
   })
   .catch(console.log);
-
-startServer();
 
 ipcMain.handle('network:getServerIP', () => {
   return getFirstIPv4LanIp();

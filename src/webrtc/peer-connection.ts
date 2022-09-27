@@ -1,4 +1,4 @@
-import { Socket } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 import { createSocketIoTransport, RTCTransportSender } from './socket-io';
 
 // const socket = io("http://localhost:30033");
@@ -54,6 +54,14 @@ export function createSocketIoPeerConnection(socket: Socket) {
     transport,
     offerAudio: (audioDeviceId) => makeOffer(spc, audioDeviceId),
   };
+
+  console.table({
+    iceConnectionState: pc.iceConnectionState,
+    iceGatheringState: pc.iceGatheringState,
+    connectionState: pc.connectionState,
+    currentLocalDescription: pc.currentLocalDescription,
+    currentRemoteDescription: pc.currentRemoteDescription,
+  });
 
   socket.on(commonEventName, async (message) => {
     console.log(`Data from server [${message.type}]`);
@@ -149,3 +157,10 @@ async function makeOffer(
 //   console.log(`Selected audio source: ${audioSourceId}`);
 //   makeOffer(peerConnection, audioSourceId);
 // });
+
+const socket = io('http://localhost:30033');
+socket.on('connect', () => {
+  console.log('Connected to server as ', socket.id);
+});
+
+export const spc = createSocketIoPeerConnection(socket);
