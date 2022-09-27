@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { MemoryRouter as Router, Route, Routes } from 'react-router-dom';
-import { spc } from 'webrtc/peer-connection';
+import { clientManager } from 'webrtc/peer-connection';
 import './App.css';
 
 const Home = () => {
@@ -17,14 +17,9 @@ const Home = () => {
   }
 
   function handleDeviceChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    if (!spc.pc.currentRemoteDescription) {
-      console.log('no remote description');
-      return;
-    }
-
     const deviceId = e.target.value;
     console.log(`Selected audio source: ${deviceId}`);
-    spc.offerAudio(deviceId);
+    clientManager.changeAudioSource(deviceId);
     setSelectedDevice(deviceId);
   }
 

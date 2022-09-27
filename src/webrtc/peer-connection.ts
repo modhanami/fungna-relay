@@ -21,29 +21,13 @@ import { createSocketIoTransport, RTCTransportSender } from './socket-io';
 
 interface SocketIoPeerConnection {
   pc: RTCPeerConnection;
+  clientId: string;
   transport: RTCTransportSender;
   offerAudio: (audioDeviceId: string) => Promise<void>;
 }
 
-function setupSocketIoPeerConnectionEventHandlers(
-  pc: RTCPeerConnection,
-  transport: RTCTransportSender
-) {
-  pc.onicecandidate = (event) => {
-    if (event.candidate) {
-      transport.sendCandidate(event.candidate);
-    }
-  };
-
-  pc.onconnectionstatechange = () => {
-    console.log(`Connection state changed: ${pc.connectionState}`);
-  };
-}
-
-export function createSocketIoPeerConnection(socket: Socket) {
-  const transport = createSocketIoTransport(socket);
-  const commonEventName = 'message';
-
+export function createSocketIoPeerConnection(socket: Socket, clientId: string) {
+  const transport = createSocketIoTransport(socket, { clientId });
   const config = {
     iceServers: [],
   };
@@ -51,6 +35,7 @@ export function createSocketIoPeerConnection(socket: Socket) {
   const pc = new RTCPeerConnection(config);
   const spc: SocketIoPeerConnection = {
     pc,
+    clientId,
     transport,
     offerAudio: (audioDeviceId) => makeOffer(spc, audioDeviceId),
   };
@@ -63,27 +48,17 @@ export function createSocketIoPeerConnection(socket: Socket) {
     currentRemoteDescription: pc.currentRemoteDescription,
   });
 
-  socket.on(commonEventName, async (message) => {
-    console.log(`Data from server [${message.type}]`);
-    switch (message.type) {
-      case 'answer':
-        console.log('Received answer');
-        await pc.setRemoteDescription(message.payload);
-        break;
-      case 'candidate':
-        console.log('Received candidate');
-        await pc.addIceCandidate(message.payload);
-        break;
-      case 'ready':
-        console.log('Received ready');
-        await makeOffer(spc);
-        break;
-      default:
-        console.log('Unknown message type');
+  pc.onicecandidate = (event) => {
+    if (event.candidate) {
+      transport.sendCandidate(event.candidate);
     }
-  });
+  };
 
-  setupSocketIoPeerConnectionEventHandlers(pc, transport);
+  pc.onconnectionstatechange = () => {
+    console.log(
+      `Connection state changed for ${clientId}: ${pc.connectionState}`
+    );
+  };
 
   return spc;
 }
@@ -116,8 +91,10 @@ async function makeOffer(
       .getSenders()
       .find((s) => s.track?.kind === track.kind);
     if (sender) {
+      console.log(`Replaced ${track.kind} track for ${spc.clientId}`);
       await sender.replaceTrack(track);
     } else {
+      console.log(`Added ${track.kind} track for ${spc.clientId}`);
       spc.pc.addTrack(track, localStream);
     }
   });
@@ -158,9 +135,68 @@ async function makeOffer(
 //   makeOffer(peerConnection, audioSourceId);
 // });
 
-const socket = io('http://localhost:30033');
+export const socket = io('http://localhost:30033', {
+  query: {
+    isRelay: true,
+  },
+});
+
 socket.on('connect', () => {
   console.log('Connected to server as ', socket.id);
 });
 
-export const spc = createSocketIoPeerConnection(socket);
+const peerConnections: Map<string, SocketIoPeerConnection> = new Map();
+
+socket.on('client:join', ({ clientId }) => {
+  console.log(`Client joined: ${clientId}`);
+  const spc = createSocketIoPeerConnection(socket, clientId);
+  peerConnections.set(clientId, spc);
+});
+
+socket.on('client:leave', ({ clientId }) => {
+  console.log(`Client left: ${clientId}`);
+  const spc = peerConnections.get(clientId);
+  if (spc) {
+    spc.pc.close();
+    peerConnections.delete(clientId);
+  }
+});
+
+socket.on('client:request-offer', async ({ clientId }) => {
+  console.log(`Client requested an offer: ${clientId}`);
+  const spc = peerConnections.get(clientId);
+  if (spc) {
+    spc.offerAudio('default');
+  }
+});
+
+socket.on('client:message', async ({ clientId, message }) => {
+  console.log(`Client sent message: ${clientId}`);
+  const spc = peerConnections.get(clientId);
+  if (spc) {
+    switch (message.type) {
+      case 'answer':
+        console.log(`Received answer from ${clientId}`);
+        await spc.pc.setRemoteDescription(message.payload);
+        break;
+      case 'candidate':
+        console.log(`Received candidate from ${clientId}`);
+        await spc.pc.addIceCandidate(message.payload);
+        break;
+      default:
+        console.log(`Unknown message type from ${clientId}, `, message);
+    }
+  }
+});
+
+export const clientManager = (() => {
+  function changeAudioSource(audioDeviceId: string) {
+    peerConnections.forEach((spc) => {
+      spc.offerAudio(audioDeviceId);
+    });
+  }
+
+  return {
+    changeAudioSource,
+  };
+})();
